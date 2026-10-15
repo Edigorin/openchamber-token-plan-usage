@@ -1,6 +1,6 @@
 {
   "name": "openchamber-token-plan-usage",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "type": "module",
   "openchamber": {
@@ -18,7 +18,7 @@
       "statusSection": {
         "entry": "status/index.html",
         "title": "Token Plans",
-        "height": 120
+        "height": 240
       },
       "service": {
         "entry": "service/main.js",

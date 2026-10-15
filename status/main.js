@@ -1729,6 +1729,13 @@ ${GUEST_UI_LOOK_CSS}`;
     if (note) group.append(el2("div", "note", note));
     return group;
   }
+  async function fit() {
+    try {
+      const height = Math.ceil(root.getBoundingClientRect().height);
+      await host.setHeight(Math.min(320, Math.max(24, height)));
+    } catch {
+    }
+  }
   async function load() {
     root.replaceChildren();
     try {
@@ -1739,22 +1746,19 @@ ${GUEST_UI_LOOK_CSS}`;
         ["Alibaba", payload.alibaba],
         ["Xiaomi", payload.xiaomi]
       ];
-      let height = 16;
       for (const [title, provider] of parts) {
         if (!provider.ok) {
           root.append(renderGroup(title, [], provider.error));
-          height += 36;
           continue;
         }
         const windows = provider.data.windows ?? [];
         root.append(renderGroup(title, windows));
-        height += 22 + 26 * Math.min(3, windows.length);
       }
-      await host.setHeight(Math.min(320, Math.max(24, height)));
+      await fit();
     } catch (error) {
       const text = error instanceof HostRequestError ? error.code : String(error);
-      root.append(el2("div", "note", `Token plan usage unavailable (${text}).`));
-      await host.setHeight(40);
+      root.replaceChildren(el2("div", "note", `Token plan usage unavailable (${text}).`));
+      await fit();
     }
   }
   host.onReady((ctx) => {

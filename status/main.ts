@@ -40,6 +40,17 @@ function renderGroup(title: string, windows: Window[], note?: string): HTMLEleme
   return group;
 }
 
+// Measure the real laid-out height; hardcoded estimates drift with fonts and
+// wrapping, and a short frame makes the section scroll.
+async function fit(): Promise<void> {
+  try {
+    const height = Math.ceil(root.getBoundingClientRect().height);
+    await host.setHeight(Math.min(320, Math.max(24, height)));
+  } catch {
+    // the manifest height is the fallback; never let sizing break the content
+  }
+}
+
 async function load(): Promise<void> {
   root.replaceChildren();
   try {
@@ -53,22 +64,19 @@ async function load(): Promise<void> {
       ["Alibaba", payload.alibaba],
       ["Xiaomi", payload.xiaomi],
     ];
-    let height = 16;
     for (const [title, provider] of parts) {
       if (!provider.ok) {
         root.append(renderGroup(title, [], provider.error));
-        height += 36;
         continue;
       }
       const windows = (provider.data.windows ?? []) as Window[];
       root.append(renderGroup(title, windows));
-      height += 22 + 26 * Math.min(3, windows.length);
     }
-    await host.setHeight(Math.min(320, Math.max(24, height)));
+    await fit();
   } catch (error) {
     const text = error instanceof HostRequestError ? error.code : String(error);
-    root.append(el("div", "note", `Token plan usage unavailable (${text}).`));
-    await host.setHeight(40);
+    root.replaceChildren(el("div", "note", `Token plan usage unavailable (${text}).`));
+    await fit();
   }
 }
 
