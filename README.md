@@ -15,8 +15,9 @@ instead. It survives OpenChamber updates.
 ## Layout
 
 ```
-package.json      manifest (panel + local service)
+package.json      manifest (panel + Work Status section + local service)
 panel/            the rail panel (sandboxed page, bundled IIFE)
+status/           compact usage summary for the Work Status panel
 service/main.js   local process: runs `bl`, calls the MiMo API, serves /usage
 ```
 
