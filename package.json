@@ -1,0 +1,38 @@
+{
+  "name": "openchamber-token-plan-usage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "openchamber": {
+    "apiVersion": 1,
+    "engines": {
+      "openchamber": ">=1.22.0"
+    },
+    "contributes": {
+      "panel": {
+        "id": "token-plan-usage",
+        "name": "Token Plans",
+        "icon": "pie-chart",
+        "entry": "panel/index.html"
+      },
+      "service": {
+        "entry": "service/main.js",
+        "runtime": "host",
+        "permissions": {
+          "exec": [
+            "bl"
+          ]
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild panel/main.ts --bundle --format=iife --platform=browser --outfile=panel/main.js && esbuild service/main.ts --bundle --format=esm --platform=node --outfile=service/main.js"
+  },
+  "devDependencies": {
+    "@openchamber/sdk": "^1.24.0",
+    "@types/node": "^26.6.5",
+    "esbuild": "^0.25.0",
+    "typescript": "^7.0.2"
+  }
+}
