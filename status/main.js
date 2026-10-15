@@ -1737,7 +1737,7 @@ ${GUEST_UI_LOOK_CSS}`;
     }
   }
   async function load() {
-    root.replaceChildren();
+    const current = ++generation;
     try {
       const result = await host.serviceRequest({ method: "GET", path: "/usage" });
       if (result.status !== 200) throw new Error(`service answered ${result.status}`);
@@ -1746,24 +1746,29 @@ ${GUEST_UI_LOOK_CSS}`;
         ["Alibaba", payload.alibaba],
         ["Xiaomi", payload.xiaomi]
       ];
+      const nodes = [];
       for (const [title, provider] of parts) {
         if (!provider.ok) {
-          root.append(renderGroup(title, [], provider.error));
+          nodes.push(renderGroup(title, [], provider.error));
           continue;
         }
         const windows = provider.data.windows ?? [];
-        root.append(renderGroup(title, windows));
+        nodes.push(renderGroup(title, windows));
       }
-      await fit();
+      if (current !== generation) return;
+      root.replaceChildren(...nodes);
     } catch (error) {
+      if (current !== generation) return;
       const text = error instanceof HostRequestError ? error.code : String(error);
       root.replaceChildren(el2("div", "note", `Token plan usage unavailable (${text}).`));
-      await fit();
     }
+    await fit();
   }
+  var generation = 0;
+  var refreshTimer;
   host.onReady((ctx) => {
     applyHostReady(ctx, document.documentElement);
     void load();
-    setInterval(() => void load(), 5 * 60 * 1e3);
+    if (refreshTimer === void 0) refreshTimer = setInterval(() => void load(), 5 * 60 * 1e3);
   });
 })();

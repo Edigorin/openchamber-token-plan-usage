@@ -52,7 +52,7 @@ async function fit(): Promise<void> {
 }
 
 async function load(): Promise<void> {
-  root.replaceChildren();
+  const current = ++generation;
   try {
     const result = await host.serviceRequest({ method: "GET", path: "/usage" });
     if (result.status !== 200) throw new Error(`service answered ${result.status}`);
@@ -64,24 +64,32 @@ async function load(): Promise<void> {
       ["Alibaba", payload.alibaba],
       ["Xiaomi", payload.xiaomi],
     ];
+    const nodes: HTMLElement[] = [];
     for (const [title, provider] of parts) {
       if (!provider.ok) {
-        root.append(renderGroup(title, [], provider.error));
+        nodes.push(renderGroup(title, [], provider.error));
         continue;
       }
       const windows = (provider.data.windows ?? []) as Window[];
-      root.append(renderGroup(title, windows));
+      nodes.push(renderGroup(title, windows));
     }
-    await fit();
+    if (current !== generation) return;
+    // Swap in one step after the data arrives: overlapping refreshes can never
+    // append a second copy of the content.
+    root.replaceChildren(...nodes);
   } catch (error) {
+    if (current !== generation) return;
     const text = error instanceof HostRequestError ? error.code : String(error);
     root.replaceChildren(el("div", "note", `Token plan usage unavailable (${text}).`));
-    await fit();
   }
+  await fit();
 }
+
+let generation = 0;
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
 
 host.onReady((ctx) => {
   applyHostReady(ctx, document.documentElement);
   void load();
-  setInterval(() => void load(), 5 * 60 * 1000);
+  if (refreshTimer === undefined) refreshTimer = setInterval(() => void load(), 5 * 60 * 1000);
 });

@@ -2265,8 +2265,11 @@ ${GUEST_UI_LOOK_CSS}`;
       body: result.hint
     });
   }
+  var mounted = false;
   host.onReady((ctx) => {
     applyHostReady(ctx, document.documentElement);
+    if (mounted) return;
+    mounted = true;
     root.replaceChildren();
     const header = el2("div", "header");
     const title = el2("h1", "title", "Token Plans");

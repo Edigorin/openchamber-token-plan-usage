@@ -56,8 +56,14 @@ function renderError(container: HTMLElement, result: Extract<ProviderResult, { o
   });
 }
 
+// One-time initialization: onReady repeats on theme/session snapshots, and a
+// second mount would orphan the built DOM while timers kept refreshing it.
+let mounted = false;
+
 host.onReady((ctx) => {
   applyHostReady(ctx, document.documentElement);
+  if (mounted) return;
+  mounted = true;
   root.replaceChildren();
 
   const header = el("div", "header");

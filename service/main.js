@@ -275,6 +275,8 @@ var MIMO_ITEM_LABELS = {
 };
 async function mimoFetch(url, cookie) {
   const response = await fetch(url, {
+    redirect: "manual",
+    // never forward the session cookie across a redirect
     headers: {
       Accept: "application/json, text/plain, */*",
       Cookie: cookie,
@@ -316,8 +318,8 @@ async function fetchXiaomi(cfg) {
   if (loginStates(detail.status, detailBody?.code) && loginStates(usage.status, usageBody?.code)) {
     return {
       ok: false,
-      error: "Xiaomi MiMo login required or session expired.",
-      hint: "Copy a fresh Cookie header from platform.xiaomimimo.com/#/console/plan-manage and save it below.",
+      error: "Xiaomi MiMo rejected the stored session.",
+      hint: "The cookie is expired or the account logged out. Copy a fresh Cookie header from platform.xiaomimimo.com/#/console/plan-manage and save it below.",
       needsCookie: true
     };
   }
