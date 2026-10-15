@@ -90,6 +90,27 @@ export const usagePayload = (label: string, error?: string) =>
     alibaba: error
       ? { ok: false, error }
       : { ok: true, data: { windows: [{ label, used: 1, limit: 1, percent: 100 }] } },
-    xiaomi: { ok: true, data: { windows: [{ label: "Monthly credits", used: 1, limit: 2, percent: 50 }] } },
+    xiaomi: {
+      ok: true,
+      data: {
+        planCode: "lite",
+        planName: "Lite",
+        periodEnd: "2026-11-14 23:59:59",
+        expired: false,
+        windows: [
+          {
+            label: "Monthly credits",
+            used: 2_100_219_044,
+            limit: 4_100_000_000,
+            percent: 51.2,
+            resetsAt: "2026-11-14T23:59:59.000Z",
+          },
+        ],
+        balance: "0.00",
+        currency: "USD",
+        cashBalance: "0.00",
+        giftBalance: "0.00",
+      },
+    },
     fetchedAt: "2026-10-15T00:00:00Z",
   });

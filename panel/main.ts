@@ -12,7 +12,13 @@ type ProviderResult =
   | { ok: false; error: string; hint?: string; needsConsoleLogin?: boolean; needsCookie?: boolean };
 
 const fmt = (value: number): string =>
-  value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M` : value >= 1_000 ? `${(value / 1_000).toFixed(1)}k` : String(value);
+  value >= 1_000_000_000
+    ? `${(value / 1_000_000_000).toFixed(1)}B`
+    : value >= 1_000_000
+      ? `${(value / 1_000_000).toFixed(1)}M`
+      : value >= 1_000
+        ? `${(value / 1_000).toFixed(1)}k`
+        : String(value);
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] => {
   const node = document.createElement(tag);
@@ -271,11 +277,7 @@ host.onReady((ctx) => {
       planName: string | null;
       periodEnd: string | null;
       expired: boolean;
-      used: number;
-      limit: number;
-      percent: number;
-      items: Window[];
-      lifetimeItems: Window[];
+      windows: Window[];
       balance: string | null;
       currency: string | null;
       cashBalance: string | null;
@@ -287,14 +289,9 @@ host.onReady((ctx) => {
     if (data.expired) meta.append(el("span", "chip warn", "expired"));
     if (data.periodEnd) meta.append(el("span", "chip", `period ends ${data.periodEnd} UTC`));
     xiaomiBody.append(meta);
-    const windows: Window[] =
-      data.limit > 0
-        ? [
-            { label: "Monthly credits", used: data.used, limit: data.limit, percent: data.percent, resetsAt: data.periodEnd },
-            ...data.items.slice(1),
-            ...data.lifetimeItems,
-          ]
-        : [...data.items, ...data.lifetimeItems];
+    // Windows come from the service (one per real quota) — the same list the
+    // Work Status section renders.
+    const windows = data.windows ?? [];
     if (windows.length > 0) renderWindows(xiaomiBody, windows);
     const balance = Number(data.balance ?? 0);
     const granted = Number(data.giftBalance ?? 0);

@@ -11,6 +11,8 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { buildXiaomiWindows, number, pickExtraItems, toCreditsItem } from "./normalize.ts";
+
 const port = Number(process.env.OPENCHAMBER_SERVICE_PORT);
 const token = process.env.OPENCHAMBER_SERVICE_TOKEN ?? "";
 if (!port || !token) {
@@ -332,22 +334,11 @@ function normalizeAlibaba(raw: Record<string, unknown>): Record<string, unknown>
   return { raw, windows: windows.slice(0, 12) };
 }
 
-function number(value: unknown): number | null {
-  const parsed = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 // ---------------------------------------------------------------------------
 // Xiaomi MiMo Token Plan via the platform console API
 // ---------------------------------------------------------------------------
 
 const MIMO_DEFAULT_API = "https://platform.xiaomimimo.com/api/v1";
-
-const MIMO_ITEM_LABELS: Record<string, string> = {
-  month_total_token: "Monthly credits",
-  plan_total_token: "Plan credits",
-  compensation_total_token: "Compensation credits",
-};
 
 async function mimoFetch(url: string, cookie: string): Promise<{ status: number; body: unknown }> {
   const response = await fetch(url, {
@@ -426,32 +417,21 @@ async function fetchXiaomi(cfg: Config): Promise<ProviderResult> {
   const first = (items[0] ?? monthUsage) as Record<string, unknown>;
   const lifetime = ((usageData.usage ?? {}) as { items?: Array<Record<string, unknown>> }).items ?? [];
 
-  // The API reports `percent` as a used fraction (0..1). Derive the percentage
-  // from used/limit when possible and normalize to 0..100 either way.
-  const toItem = (item: Record<string, unknown>): Record<string, unknown> => {
-    const used = number(item.used) ?? 0;
-    const limit = number(item.limit) ?? 0;
-    const fraction = number(item.percent);
-    return {
-      name: MIMO_ITEM_LABELS[String(item.name ?? "")] ?? (item.name ?? null),
-      used,
-      limit,
-      percent: limit > 0 ? (used / limit) * 100 : fraction !== null ? (fraction <= 1 ? fraction * 100 : fraction) : 0,
-    };
-  };
   const used = number(first.used ?? monthUsage.used) ?? 0;
   const limit = number(first.limit ?? monthUsage.limit ?? monthUsage.monthlyQuota) ?? 0;
   const fraction = number(first.percent ?? monthUsage.percent);
   const percent = limit > 0 ? (used / limit) * 100 : fraction !== null ? (fraction <= 1 ? fraction * 100 : fraction) : 0;
 
-  // The API reports the same quota twice: `monthUsage` (the monthly window) and
-  // `usage.usage` ("plan total"). Keep only the extras that are actually a
-  // distinct bucket (e.g. compensation credits), so the card shows one bar per
-  // real quota.
-  const extraItems = lifetime
-    .filter((item) => (number(item.limit) ?? 0) > 0)
-    .filter((item) => !(number(item.used) === used && number(item.limit) === limit))
-    .map(toItem);
+  const creditsItems = items.map(toCreditsItem);
+  const extras = pickExtraItems(lifetime, used, limit);
+  const windows = buildXiaomiWindows({
+    used,
+    limit,
+    percent,
+    items: creditsItems,
+    extras,
+    periodEnd: detailData.currentPeriodEnd,
+  });
 
   const balanceData =
     balance.status === 200 ? (((balance.body as { data?: Record<string, unknown> } | null)?.data ?? {}) as Record<string, unknown>) : {};
@@ -466,8 +446,9 @@ async function fetchXiaomi(cfg: Config): Promise<ProviderResult> {
       used,
       limit,
       percent,
-      items: items.map(toItem),
-      lifetimeItems: extraItems,
+      windows,
+      items: creditsItems,
+      lifetimeItems: extras,
       balance: balanceData.balance ?? null,
       currency: balanceData.currency ?? null,
       cashBalance: balanceData.cashBalance ?? null,

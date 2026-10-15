@@ -60,6 +60,12 @@ describe("status section lifecycle", () => {
     expect(statusRoot.children.length).toBe(2); // one group per provider, never doubled
     const labels = statusRoot.children.map((group) => group.children[1]?.children[0]?.children[0]?.textContent);
     expect(labels).toContain("newer"); // the stale response did not overwrite it
+
+    // Xiaomi renders a real bar row, not a bare header.
+    const xiaomiRow = statusRoot.children[1].children[1];
+    expect(xiaomiRow.children[0].children[0].textContent).toBe("Monthly credits");
+    expect(xiaomiRow.children[0].children[1].textContent).toBe("51%");
+    expect(xiaomiRow.children[1].children[0].style.width).toBe("51.2%");
   });
 
   it("leaves a single error note on failure", async () => {
@@ -105,6 +111,17 @@ describe("panel lifecycle", () => {
     await tick();
     expect(panelRoot.replaceCalls).toBe(1); // no rebuild, so settings drafts survive
     expect(intervalCalls).toBe(1);
+
+    // The Xiaomi card renders the service windows with numeric and reset
+    // formatting intact.
+    const xiaomiBody = panelRoot.children[2].children[1];
+    expect(xiaomiBody.children[0].children[0].textContent).toBe("Lite"); // plan chip
+    const row = xiaomiBody.children[1];
+    expect(row.children[0].textContent).toBe("Monthly credits");
+    expect(row.children[1].textContent).toBe("2.1B / 4.1B · 51%");
+    expect(row.children[2].children[0].style.width).toBe("51.2%");
+    expect(String(row.children[3]?.textContent ?? "")).toContain("resets");
+
     (globalThis as { setInterval: unknown }).setInterval = realSetInterval;
   });
 });

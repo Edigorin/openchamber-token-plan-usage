@@ -4,6 +4,55 @@ import http from "node:http";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+// service/normalize.ts
+var MIMO_ITEM_LABELS = {
+  month_total_token: "Monthly credits",
+  plan_total_token: "Plan credits",
+  compensation_total_token: "Compensation credits"
+};
+var number = (value) => {
+  const parsed = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+};
+var toCreditsItem = (item) => {
+  const used = number(item?.used) ?? 0;
+  const limit = number(item?.limit) ?? 0;
+  const fraction = number(item?.percent);
+  return {
+    name: MIMO_ITEM_LABELS[String(item?.name ?? "")] ?? (item?.name ?? null),
+    used,
+    limit,
+    percent: limit > 0 ? used / limit * 100 : fraction !== null ? fraction <= 1 ? fraction * 100 : fraction : 0
+  };
+};
+var pickExtraItems = (lifetime, used, limit) => lifetime.filter((item) => (number(item?.limit) ?? 0) > 0).filter((item) => !(number(item?.used) === used && number(item?.limit) === limit)).map(toCreditsItem);
+var parseUtcReset = (value) => {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Date.parse(`${value.trim().replace(" ", "T")}Z`);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+};
+var buildXiaomiWindows = (input) => {
+  const resetAt = parseUtcReset(input.periodEnd);
+  const toWindow = (item, resetsAt) => ({
+    label: item.name ?? "Credits",
+    used: item.used,
+    limit: item.limit,
+    percent: item.percent,
+    resetsAt
+  });
+  const extras = input.extras.map((item) => toWindow(item, null));
+  if (input.limit > 0) {
+    return [
+      { label: "Monthly credits", used: input.used, limit: input.limit, percent: input.percent, resetsAt: resetAt },
+      ...input.items.slice(1).map((item) => toWindow(item, null)),
+      ...extras
+    ];
+  }
+  return [...input.items.map((item) => toWindow(item, null)), ...extras];
+};
+
+// service/main.ts
 var port = Number(process.env.OPENCHAMBER_SERVICE_PORT);
 var token = process.env.OPENCHAMBER_SERVICE_TOKEN ?? "";
 if (!port || !token) {
@@ -263,16 +312,7 @@ function normalizeAlibaba(raw) {
   }
   return { raw, windows: windows.slice(0, 12) };
 }
-function number(value) {
-  const parsed = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
-  return Number.isFinite(parsed) ? parsed : null;
-}
 var MIMO_DEFAULT_API = "https://platform.xiaomimimo.com/api/v1";
-var MIMO_ITEM_LABELS = {
-  month_total_token: "Monthly credits",
-  plan_total_token: "Plan credits",
-  compensation_total_token: "Compensation credits"
-};
 async function mimoFetch(url, cookie) {
   const response = await fetch(url, {
     redirect: "manual",
@@ -335,22 +375,20 @@ async function fetchXiaomi(cfg) {
   const items = Array.isArray(monthUsage.items) ? monthUsage.items : Array.isArray(usageData.items) ? usageData.items : [];
   const first = items[0] ?? monthUsage;
   const lifetime = (usageData.usage ?? {}).items ?? [];
-  const toItem = (item) => {
-    const used2 = number(item.used) ?? 0;
-    const limit2 = number(item.limit) ?? 0;
-    const fraction2 = number(item.percent);
-    return {
-      name: MIMO_ITEM_LABELS[String(item.name ?? "")] ?? (item.name ?? null),
-      used: used2,
-      limit: limit2,
-      percent: limit2 > 0 ? used2 / limit2 * 100 : fraction2 !== null ? fraction2 <= 1 ? fraction2 * 100 : fraction2 : 0
-    };
-  };
   const used = number(first.used ?? monthUsage.used) ?? 0;
   const limit = number(first.limit ?? monthUsage.limit ?? monthUsage.monthlyQuota) ?? 0;
   const fraction = number(first.percent ?? monthUsage.percent);
   const percent = limit > 0 ? used / limit * 100 : fraction !== null ? fraction <= 1 ? fraction * 100 : fraction : 0;
-  const extraItems = lifetime.filter((item) => (number(item.limit) ?? 0) > 0).filter((item) => !(number(item.used) === used && number(item.limit) === limit)).map(toItem);
+  const creditsItems = items.map(toCreditsItem);
+  const extras = pickExtraItems(lifetime, used, limit);
+  const windows = buildXiaomiWindows({
+    used,
+    limit,
+    percent,
+    items: creditsItems,
+    extras,
+    periodEnd: detailData.currentPeriodEnd
+  });
   const balanceData = balance.status === 200 ? balance.body?.data ?? {} : {};
   return {
     ok: true,
@@ -362,8 +400,9 @@ async function fetchXiaomi(cfg) {
       used,
       limit,
       percent,
-      items: items.map(toItem),
-      lifetimeItems: extraItems,
+      windows,
+      items: creditsItems,
+      lifetimeItems: extras,
       balance: balanceData.balance ?? null,
       currency: balanceData.currency ?? null,
       cashBalance: balanceData.cashBalance ?? null,

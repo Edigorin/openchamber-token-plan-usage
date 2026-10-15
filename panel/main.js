@@ -2225,7 +2225,7 @@ ${GUEST_UI_LOOK_CSS}`;
   var host = connectHost();
   var root = document.querySelector("#root");
   if (!root) throw new Error("Missing root");
-  var fmt = (value) => value >= 1e6 ? `${(value / 1e6).toFixed(1)}M` : value >= 1e3 ? `${(value / 1e3).toFixed(1)}k` : String(value);
+  var fmt = (value) => value >= 1e9 ? `${(value / 1e9).toFixed(1)}B` : value >= 1e6 ? `${(value / 1e6).toFixed(1)}M` : value >= 1e3 ? `${(value / 1e3).toFixed(1)}k` : String(value);
   var el2 = (tag, className, text) => {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -2455,11 +2455,7 @@ ${GUEST_UI_LOOK_CSS}`;
       if (data.expired) meta.append(el2("span", "chip warn", "expired"));
       if (data.periodEnd) meta.append(el2("span", "chip", `period ends ${data.periodEnd} UTC`));
       xiaomiBody.append(meta);
-      const windows = data.limit > 0 ? [
-        { label: "Monthly credits", used: data.used, limit: data.limit, percent: data.percent, resetsAt: data.periodEnd },
-        ...data.items.slice(1),
-        ...data.lifetimeItems
-      ] : [...data.items, ...data.lifetimeItems];
+      const windows = data.windows ?? [];
       if (windows.length > 0) renderWindows(xiaomiBody, windows);
       const balance = Number(data.balance ?? 0);
       const granted = Number(data.giftBalance ?? 0);
