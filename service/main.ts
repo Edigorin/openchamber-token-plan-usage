@@ -443,6 +443,15 @@ async function fetchXiaomi(cfg: Config): Promise<ProviderResult> {
   const fraction = number(first.percent ?? monthUsage.percent);
   const percent = limit > 0 ? (used / limit) * 100 : fraction !== null ? (fraction <= 1 ? fraction * 100 : fraction) : 0;
 
+  // The API reports the same quota twice: `monthUsage` (the monthly window) and
+  // `usage.usage` ("plan total"). Keep only the extras that are actually a
+  // distinct bucket (e.g. compensation credits), so the card shows one bar per
+  // real quota.
+  const extraItems = lifetime
+    .filter((item) => (number(item.limit) ?? 0) > 0)
+    .filter((item) => !(number(item.used) === used && number(item.limit) === limit))
+    .map(toItem);
+
   const balanceData =
     balance.status === 200 ? (((balance.body as { data?: Record<string, unknown> } | null)?.data ?? {}) as Record<string, unknown>) : {};
 
@@ -457,7 +466,7 @@ async function fetchXiaomi(cfg: Config): Promise<ProviderResult> {
       limit,
       percent,
       items: items.map(toItem),
-      lifetimeItems: lifetime.filter((item) => (number(item.limit) ?? 0) > 0).map(toItem),
+      lifetimeItems: extraItems,
       balance: balanceData.balance ?? null,
       currency: balanceData.currency ?? null,
       cashBalance: balanceData.cashBalance ?? null,

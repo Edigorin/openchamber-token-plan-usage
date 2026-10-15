@@ -348,6 +348,7 @@ async function fetchXiaomi(cfg) {
   const limit = number(first.limit ?? monthUsage.limit ?? monthUsage.monthlyQuota) ?? 0;
   const fraction = number(first.percent ?? monthUsage.percent);
   const percent = limit > 0 ? used / limit * 100 : fraction !== null ? fraction <= 1 ? fraction * 100 : fraction : 0;
+  const extraItems = lifetime.filter((item) => (number(item.limit) ?? 0) > 0).filter((item) => !(number(item.used) === used && number(item.limit) === limit)).map(toItem);
   const balanceData = balance.status === 200 ? balance.body?.data ?? {} : {};
   return {
     ok: true,
@@ -360,7 +361,7 @@ async function fetchXiaomi(cfg) {
       limit,
       percent,
       items: items.map(toItem),
-      lifetimeItems: lifetime.filter((item) => (number(item.limit) ?? 0) > 0).map(toItem),
+      lifetimeItems: extraItems,
       balance: balanceData.balance ?? null,
       currency: balanceData.currency ?? null,
       cashBalance: balanceData.cashBalance ?? null,
